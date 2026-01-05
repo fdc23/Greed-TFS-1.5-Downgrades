@@ -409,6 +409,10 @@ class Player final : public Creature, public Cylinder
 			this->town = town;
 		}
 
+		void clearModalWindows();
+		bool hasModalWindowOpen(uint32_t modalWindowId) const;
+		void onModalWindowHandled(uint32_t modalWindowId);
+
 		bool isPushable() const override;
 		uint32_t isMuted() const;
 		void addMessageBuffer();
@@ -786,6 +790,8 @@ class Player final : public Creature, public Cylinder
 			}
 		}
 
+		void sendModalWindow(const ModalWindow& modalWindow);
+
 		//container
 		void sendAddContainerItem(const Container* container, const Item* item);
 		void sendUpdateContainerItem(const Container* container, uint16_t slot, const Item* newItem);
@@ -1101,6 +1107,7 @@ class Player final : public Creature, public Cylinder
 		std::list<ShopInfo> shopItemList;
 
 		std::forward_list<Party*> invitePartyList;
+		std::forward_list<uint32_t> modalWindows;
 		std::forward_list<std::string> learnedInstantSpellList;
 		std::forward_list<Condition*> storedConditionList; // TODO: This variable is only temporarily used when logging in, get rid of it somehow
 

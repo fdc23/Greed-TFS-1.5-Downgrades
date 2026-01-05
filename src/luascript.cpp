@@ -1424,6 +1424,7 @@ void LuaScriptInterface::registerFunctions()
 	registerEnum(CREATURE_EVENT_DEATH)
 	registerEnum(CREATURE_EVENT_KILL)
 	registerEnum(CREATURE_EVENT_ADVANCE)
+	registerEnum(CREATURE_EVENT_MODALWINDOW)
 	registerEnum(CREATURE_EVENT_TEXTEDIT)
 	registerEnum(CREATURE_EVENT_HEALTHCHANGE)
 	registerEnum(CREATURE_EVENT_MANACHANGE)
@@ -2150,6 +2151,36 @@ void LuaScriptInterface::registerFunctions()
 	registerMethod("NetworkMessage", "len", LuaScriptInterface::luaNetworkMessageLength);
 	registerMethod("NetworkMessage", "skipBytes", LuaScriptInterface::luaNetworkMessageSkipBytes);
 	registerMethod("NetworkMessage", "sendToPlayer", LuaScriptInterface::luaNetworkMessageSendToPlayer);
+
+	// ModalWindow
+	registerClass("ModalWindow", "", LuaScriptInterface::luaModalWindowCreate);
+	registerMetaMethod("ModalWindow", "__eq", LuaScriptInterface::luaUserdataCompare);
+	registerMetaMethod("ModalWindow", "__gc", LuaScriptInterface::luaModalWindowDelete);
+	registerMethod("ModalWindow", "delete", LuaScriptInterface::luaModalWindowDelete);
+	
+	registerMethod("ModalWindow", "getId", LuaScriptInterface::luaModalWindowGetId);
+	registerMethod("ModalWindow", "getTitle", LuaScriptInterface::luaModalWindowGetTitle);
+	registerMethod("ModalWindow", "getMessage", LuaScriptInterface::luaModalWindowGetMessage);
+	
+	registerMethod("ModalWindow", "setTitle", LuaScriptInterface::luaModalWindowSetTitle);
+	registerMethod("ModalWindow", "setMessage", LuaScriptInterface::luaModalWindowSetMessage);
+	
+	registerMethod("ModalWindow", "getButtonCount", LuaScriptInterface::luaModalWindowGetButtonCount);
+	registerMethod("ModalWindow", "getChoiceCount", LuaScriptInterface::luaModalWindowGetChoiceCount);
+	
+	registerMethod("ModalWindow", "addButton", LuaScriptInterface::luaModalWindowAddButton);
+	registerMethod("ModalWindow", "addChoice", LuaScriptInterface::luaModalWindowAddChoice);
+	
+	registerMethod("ModalWindow", "getDefaultEnterButton", LuaScriptInterface::luaModalWindowGetDefaultEnterButton);
+	registerMethod("ModalWindow", "setDefaultEnterButton", LuaScriptInterface::luaModalWindowSetDefaultEnterButton);
+	
+	registerMethod("ModalWindow", "getDefaultEscapeButton", LuaScriptInterface::luaModalWindowGetDefaultEscapeButton);
+	registerMethod("ModalWindow", "setDefaultEscapeButton", LuaScriptInterface::luaModalWindowSetDefaultEscapeButton);
+	
+	registerMethod("ModalWindow", "hasPriority", LuaScriptInterface::luaModalWindowHasPriority);
+	registerMethod("ModalWindow", "setPriority", LuaScriptInterface::luaModalWindowSetPriority);
+	
+	registerMethod("ModalWindow", "sendToPlayer", LuaScriptInterface::luaModalWindowSendToPlayer);
 
 	// Item
 	registerClass("Item", "", LuaScriptInterface::luaItemCreate);
@@ -2974,6 +3005,7 @@ void LuaScriptInterface::registerFunctions()
 	registerMethod("CreatureEvent", "onDeath", LuaScriptInterface::luaCreatureEventOnCallback);
 	registerMethod("CreatureEvent", "onKill", LuaScriptInterface::luaCreatureEventOnCallback);
 	registerMethod("CreatureEvent", "onAdvance", LuaScriptInterface::luaCreatureEventOnCallback);
+	registerMethod("CreatureEvent", "onModalWindow", LuaScriptInterface::luaCreatureEventOnCallback);
 	registerMethod("CreatureEvent", "onTextEdit", LuaScriptInterface::luaCreatureEventOnCallback);
 	registerMethod("CreatureEvent", "onHealthChange", LuaScriptInterface::luaCreatureEventOnCallback);
 	registerMethod("CreatureEvent", "onManaChange", LuaScriptInterface::luaCreatureEventOnCallback);
@@ -5886,6 +5918,243 @@ int LuaScriptInterface::luaNetworkMessageSendToPlayer(lua_State* L)
 		pushBoolean(L, true);
 	} else {
 		reportErrorFunc(L, getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+// ModalWindow
+int LuaScriptInterface::luaModalWindowCreate(lua_State* L)
+{
+	// ModalWindow(id, title, message)
+	const std::string& message = getString(L, 4);
+	const std::string& title = getString(L, 3);
+	uint32_t id = getNumber<uint32_t>(L, 2);
+
+	pushUserdata<ModalWindow>(L, new ModalWindow(id, title, message));
+	setMetatable(L, -1, "ModalWindow");
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowDelete(lua_State* L)
+{
+	ModalWindow** windowPtr = getRawUserdata<ModalWindow>(L, 1);
+	if (windowPtr && *windowPtr) {
+		delete *windowPtr;
+		*windowPtr = nullptr;
+	}
+	return 0;
+}
+
+int LuaScriptInterface::luaModalWindowGetId(lua_State* L)
+{
+	// modalWindow:getId()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		lua_pushnumber(L, window->id);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetTitle(lua_State* L)
+{
+	// modalWindow:getTitle()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		pushString(L, window->title);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetMessage(lua_State* L)
+{
+	// modalWindow:getMessage()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		pushString(L, window->message);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSetTitle(lua_State* L)
+{
+	// modalWindow:setTitle(text)
+	const std::string& text = getString(L, 2);
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->title = text;
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSetMessage(lua_State* L)
+{
+	// modalWindow:setMessage(text)
+	const std::string& text = getString(L, 2);
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->message = text;
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetButtonCount(lua_State* L)
+{
+	// modalWindow:getButtonCount()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		lua_pushnumber(L, window->buttons.size());
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetChoiceCount(lua_State* L)
+{
+	// modalWindow:getChoiceCount()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		lua_pushnumber(L, window->choices.size());
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowAddButton(lua_State* L)
+{
+	// modalWindow:addButton(id, text)
+	const std::string& text = getString(L, 3);
+	uint8_t id = getNumber<uint8_t>(L, 2);
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->buttons.emplace_back(text, id);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowAddChoice(lua_State* L)
+{
+	// modalWindow:addChoice(id, text)
+	const std::string& text = getString(L, 3);
+	uint8_t id = getNumber<uint8_t>(L, 2);
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->choices.emplace_back(text, id);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetDefaultEnterButton(lua_State* L)
+{
+	// modalWindow:getDefaultEnterButton()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		lua_pushnumber(L, window->defaultEnterButton);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSetDefaultEnterButton(lua_State* L)
+{
+	// modalWindow:setDefaultEnterButton(buttonId)
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->defaultEnterButton = getNumber<uint8_t>(L, 2);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowGetDefaultEscapeButton(lua_State* L)
+{
+	// modalWindow:getDefaultEscapeButton()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		lua_pushnumber(L, window->defaultEscapeButton);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSetDefaultEscapeButton(lua_State* L)
+{
+	// modalWindow:setDefaultEscapeButton(buttonId)
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->defaultEscapeButton = getNumber<uint8_t>(L, 2);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowHasPriority(lua_State* L)
+{
+	// modalWindow:hasPriority()
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		pushBoolean(L, window->priority);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSetPriority(lua_State* L)
+{
+	// modalWindow:setPriority(priority)
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		window->priority = getBoolean(L, 2);
+		pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int LuaScriptInterface::luaModalWindowSendToPlayer(lua_State* L)
+{
+	// modalWindow:sendToPlayer(player)
+	Player* player = getPlayer(L, 2);
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	ModalWindow* window = getUserdata<ModalWindow>(L, 1);
+	if (window) {
+		if (!player->hasModalWindowOpen(window->id)) {
+			player->sendModalWindow(*window);
+		}
+		pushBoolean(L, true);
+	} else {
 		lua_pushnil(L);
 	}
 	return 1;
@@ -15729,6 +15998,8 @@ int LuaScriptInterface::luaCreatureEventType(lua_State* L)
 			creature->setEventType(CREATURE_EVENT_KILL);
 		} else if (tmpStr == "advance") {
 			creature->setEventType(CREATURE_EVENT_ADVANCE);
+		} else if (tmpStr == "modalwindow") {
+			creature->setEventType(CREATURE_EVENT_MODALWINDOW);
 		} else if (tmpStr == "textedit") {
 			creature->setEventType(CREATURE_EVENT_TEXTEDIT);
 		} else if (tmpStr == "healthchange") {
